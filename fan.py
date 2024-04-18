@@ -61,30 +61,27 @@ def log_email(subject, message):
     msg['From'] = SMTP_FROM
     msg['To'] = SMTP_TO
 
-    try:
-        with smtplib.SMTP(SMTP_SEVER, SMTP_PORT) as server:
+    
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        try:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(SMTP_FROM, SMTP_TO, msg.as_string())
 
-    except smtplib.SMTPAuthenticationError as e:
-        log_msg = f"Authentication failed. This is likely because either the email or password was incorrect. Make sure to update the examples if you haven't already, or double check your data. For those who are technically inclined, here is the error: {e}"
-        print(log_msg)
-        logger.error(log_msg)
+        except smtplib.SMTPAuthenticationError as e:
+            log_msg = f"Authentication failed. This is likely because either the email or password was incorrect. Make sure to update the examples if you haven't already, or double check your data. For those who are technically inclined, here is the error: {e}"
+            print(log_msg)
+            logger.error(log_msg)
 
-    except smtplib.SMTPConnectError as e:
-        log_msg = f"The connection to the smtp server you are using failed. This could be because the server is down, your internet isn't working, or the server doesn't like you. Here is the error it may shed some light on the issue: {e}"
-        print(log_msg)
-        logger.error(log_msg)
+        except smtplib.SMTPConnectError as e:
+            log_msg = f"The connection to the smtp server you are using failed. This could be because the server is down, your internet isn't working, or the server doesn't like you. Here is the error it may shed some light on the issue: {e}"
+            print(log_msg)
+            logger.error(log_msg)
 
-    except smtplib.SMTPResponseException as e:
-        log_msg = f"This could be anything. It is likely a case that I was too lazy to code for. If the error looks to be on my end, you can raise an issue here: https:www.github.com/tesinclair/cpu-fan-controller-RPi. Here is the error: {e}"
-        print(log_msg)
-        logger.error(log_msg)
-
-    finally:
-        return
-
+        except smtplib.SMTPException as e:
+            log_msg = f"This could be anything. It is likely a case that I was too lazy to code for. If the error looks to be on my end, you can raise an issue here: https:www.github.com/tesinclair/cpu-fan-controller-RPi. Here is the error: {e}"
+            print(log_msg)
+            logger.error(log_msg)
 
 def main() -> None:
     logging.basicConfig(filename="therm.log", level=LOGGING_LEVEL)
@@ -125,7 +122,7 @@ def main() -> None:
                 print(log_msg)
 
                 if EMAIL_LOGGING:
-                    log_email(log_msg)
+                    log_email("[INFO]: Fan On", log_msg)
 
             if fan_state != STATE_ON:
                 fan_state = set_fan_state(FAN_ON)
@@ -138,7 +135,7 @@ def main() -> None:
                 print(log_msg)
 
                 if EMAIL_LOGGING:
-                    log_email(log_msg)
+                    log_email("[INFO]: Fan Off", log_msg)
 
             if fan_state != STATE_OFF:
                 fan_state = set_fan_state(FAN_OFF)
@@ -190,12 +187,11 @@ if __name__ == '__main__':
             log_msg = "Program forcefully closed. Not logging or restarting."
             print(log_msg)
 
-            if VERBOSITY:
-                log_msg += f"Raised on {datetime.now()}"
-                logger.error(log_msg)
+            log_msg += f"Raised on {datetime.now()}"
+            logger.info(log_msg)
                 
-                if EMAIL_LOGGING:
-                    log_email(log_msg)
+            if EMAIL_LOGGING:
+                log_email("[INFO] Program Force Closed", log_msg)
 
             attempts = MAX_ATTEMPTS + 100
 
