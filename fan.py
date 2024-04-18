@@ -3,29 +3,28 @@ import subprocess
 import time
 from datetime import datetime
 import logging
+import configparser
 
 logger = logging.getLogger(__name__)
 
-# -=-=-=-=-=- Global Definitions -=-=-=-=-=-=-
 
-BOARD = GPIO.BCM
-
+# =-=-=-=-=- DO NOT EDIT -=-=-=-=-=-=-=-
 STATE_ON = True
 STATE_OFF = False
 
 FAN_ON = GPIO.HIGH
 FAN_OFF = GPIO.LOW
 
-FAN = 4 # Change this if your fan is not connected to GPIO 4
+config = configparser.ConfigParser()
+config.read('fan-setup.config')
 
-CHECK_DELAY = 30 # Change this if you want to check temp more or less frequently than 30 seconds
-
-MAX_ATTEMPTS = 3 # Change this if you want to change the number of retries the program will attempt on error. Be reasonable as opening and closing channels too much can damage your pi.
-
-# Threshold temperatures, feel free to change to your needs:
-CRIT_HEAT = 90
-WARN_HEAT = 70
-FAN_START = 55
+BOARD = getattr(GPIO, config['config']['BOARD'])
+FAN = int(config['config']['FAN'])
+CHECK_DELAY = int(config['config']['CHECK_DELAY'])
+MAX_ATTEMPTS = int(config['config']['MAX_ATTEMPTS'])
+CRIT_HEAT = int(config['config']['CRIT_HEAT'])
+WARN_HEAT = int(config['config']['WARN_HEAT'])
+FAN_START = int(config['config']['FAN_START'])
 
 
 def setup() -> None:
