@@ -19,18 +19,20 @@ STATE_OFF = False
 FAN_ON = GPIO.HIGH
 FAN_OFF = GPIO.LOW
 
-config = configparser.ConfigParser()
+config = configparser.ConfigParser(inline_comment_prefixes="#")
 config.read('fan-setup.config')
 
-BOARD = getattr(GPIO, config['BASIC']['BOARD'])
-FAN = int(config['BASIC']['FAN'])
-CHECK_DELAY = int(config['BASIC']['CHECK_DELAY'])
-MAX_ATTEMPTS = int(config['BASIC']['MAX_ATTEMPTS'])
-CRIT_HEAT = int(config['BASIC']['CRIT_HEAT'])
-WARN_HEAT = int(config['BASIC']['WARN_HEAT'])
-FAN_START = int(config['BASIC']['FAN_START'])
+BOARD = getattr(GPIO, config['BASIC']['board'])
+FAN = int(config['BASIC']['fan'])
+CHECK_DELAY = int(config['BASIC']['check_delay'])
+MAX_ATTEMPTS = int(config['BASIC']['max_attempts'])
+LOGGING_LEVEL = getattr(logging, config['BASIC']['logging_level'])
+VERBOSITY = bool(config['BASIC']['verbosity'])
+CRIT_HEAT = int(config['BASIC']['crit_heat'])
+WARN_HEAT = int(config['BASIC']['warn_heat'])
+FAN_START = int(config['BASIC']['fan_start'])
 
-EMAIL_LOGGING = config['SMPT']['email_logging'])
+EMAIL_LOGGING = bool(config['SMTP']['email_logging'])
 SMTP_SERVER = config['SMTP']['server']
 SMTP_PORT = int(config['SMTP']['port'])
 SMTP_USER = config['SMTP']['user']
@@ -59,15 +61,33 @@ def log_email(subject, message):
     msg['From'] = SMTP_FROM
     msg['To'] = SMTP_TO
 
-    with smptlib.SMTP(SMTP_SEVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_FROM, SMTP_TO, msg.as_string())
+    try:
+        with smtplib.SMTP(SMTP_SEVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_FROM, SMTP_TO, msg.as_string())
+
+    except smtplib.SMTPAuthenticationError as e:
+        log_msg = f"Authentication failed. This is likely because either the email or password was incorrect. Make sure to update the examples if you haven't already, or double check your data. For those who are technically inclined, here is the error: {e}"
+        print(log_msg)
+        logger.error(log_msg)
+
+    except smtplib.SMTPConnectError as e:
+        log_msg = f"The connection to the smtp server you are using failed. This could be because the server is down, your internet isn't working, or the server doesn't like you. Here is the error it may shed some light on the issue: {e}"
+        print(log_msg)
+        logger.error(log_msg)
+
+    except smtplib.SMTPResponseException as e:
+        log_msg = f"This could be anything. It is likely a case that I was too lazy to code for. If the error looks to be on my end, you can raise an issue here: https:www.github.com/tesinclair/cpu-fan-controller-RPi. Here is the error: {e}"
+        print(log_msg)
+        logger.error(log_msg)
+
+    finally:
+        return
+
 
 def main() -> None:
-    logging.basicConfig(filename="therm.log", level=logging.WARNING)
-    if EMAIL_LOGGINGL
-    send_email("Fan Off", f"Fan has been switched off for temp:")
+    logging.basicConfig(filename="therm.log", level=LOGGING_LEVEL)
 
     fan_state = STATE_OFF
     
@@ -91,22 +111,47 @@ def main() -> None:
             if EMAIL_LOGGING:
                 log_email("WARNING CPU TEMPERATURE", log_msg)
 
+            if VERBOSITY:
+                print(log_msg)
+
             if fan_state != STATE_ON:
                 fan_state = set_fan_state(FAN_ON)
             
         elif temp >= FAN_START:
+            log_msg = f"Core CPU temperature: {temp} has exceeded the fan start threshold {FAN_START} by {temp - FAN_START} degrees on {datetime.now()}.\n If you would not like to recieve info messages you can turn verbosity off in fan_setup.config"
+            logger.info(log_msg)
+
+            if VERBOSITY:
+                print(log_msg)
+
+                if EMAIL_LOGGING:
+                    log_email(log_msg)
+
             if fan_state != STATE_ON:
                 fan_state = set_fan_state(FAN_ON)
 
         elif temp < FAN_START:
+            log_msg = f"Core CPU temperature: {temp} is now below the fan start threshold {FAN_START} on {datetime.now()}.\nIf you would not like to recieve info messages you can turn verbosity off in fan_setup.config"
+            logger.info(log_msg)
+
+            if VERBOSITY:
+                print(log_msg)
+
+                if EMAIL_LOGGING:
+                    log_email(log_msg)
+
             if fan_state != STATE_OFF:
                 fan_state = set_fan_state(FAN_OFF)
 
         else:
             log_msg = f"Unaccounted for temperature: {temp}. Please log an issue here: https://github.com/tesinclair/rpi-temp-controller"
             logger.error(log_msg)
+
             if EMAIL_LOGGING:
                 log_email("CASE ERROR:", log_msg)
+
+            if VERBOSITY:
+                print(log_msg)
 
         time.sleep(CHECK_DELAY)
 
@@ -118,10 +163,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog="CPU Fan Controller for RPi", description="Safely controls a GPIO fan for CPU health. Shuts down pi if a maximum head is reached, and logs important system changes", epilog="")
 
     parser.add_argument("-m", "--mail", action="store_true")
+    parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
 
     if args.mail:
         EMAIL_LOGGING = True
+
+    if args.verbose:
+        LOGGING_LEVEL = logging.INFO
+        VERBOSITY = True
 
     while attempts < MAX_ATTEMPTS:
         try:
@@ -137,7 +187,16 @@ if __name__ == '__main__':
             attempts += 1
 
         except KeyboardInterrupt:
-            print("Program forcefully closed. Not logging or restarting.")
+            log_msg = "Program forcefully closed. Not logging or restarting."
+            print(log_msg)
+
+            if VERBOSITY:
+                log_msg += f"Raised on {datetime.now()}"
+                logger.error(log_msg)
+                
+                if EMAIL_LOGGING:
+                    log_email(log_msg)
+
             attempts = MAX_ATTEMPTS + 100
 
         finally:
