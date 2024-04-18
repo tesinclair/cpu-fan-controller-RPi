@@ -7,6 +7,7 @@ import configparser
 import smtplib
 from email.mime.text import MIMEText
 import argparse
+import ast
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ FAN = int(config['BASIC']['fan'])
 CHECK_DELAY = int(config['BASIC']['check_delay'])
 MAX_ATTEMPTS = int(config['BASIC']['max_attempts'])
 LOGGING_LEVEL = getattr(logging, config['BASIC']['logging_level'])
-VERBOSITY = bool(config['BASIC']['verbosity'])
+VERBOSITY = ast.literal_eval(config['BASIC']['verbosity'])
 CRIT_HEAT = int(config['BASIC']['crit_heat'])
 WARN_HEAT = int(config['BASIC']['warn_heat'])
 FAN_START = int(config['BASIC']['fan_start'])
@@ -159,8 +160,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(prog="CPU Fan Controller for RPi", description="Safely controls a GPIO fan for CPU health. Shuts down pi if a maximum head is reached, and logs important system changes", epilog="")
 
-    parser.add_argument("-m", "--mail", action="store_true")
-    parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-m", "--mail", action="store_true", help="Recieve mail updates on pi logs")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Recieve messages and logs on all events")
     args = parser.parse_args()
 
     if args.mail:
