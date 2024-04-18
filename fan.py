@@ -191,7 +191,7 @@ if __name__ == '__main__':
             log_msg += f"Raised on {datetime.now()}"
             logger.info(log_msg)
                 
-            if EMAIL_LOGGING:
+            if EMAIL_LOGGING and VERBOSITY:
                 log_email("[INFO] Program Force Closed", log_msg)
 
             attempts = MAX_ATTEMPTS + 100
